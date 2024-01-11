@@ -98,6 +98,8 @@ class AnimationBezierTrackEdit : public Control {
 	void _menu_selected(int p_index);
 
 	void _play_position_draw();
+	bool _is_track_displayed(int p_track_index);
+	bool _is_track_curves_displayed(int p_track_index);
 
 	Vector2 insert_at_pos;
 
@@ -201,6 +203,7 @@ public:
 	void set_editor(AnimationTrackEditor *p_editor);
 	void set_root(Node *p_root);
 	void set_filtered(bool p_filtered);
+	void auto_fit_vertically();
 
 	void set_play_position(real_t p_pos);
 	void update_play_position();
