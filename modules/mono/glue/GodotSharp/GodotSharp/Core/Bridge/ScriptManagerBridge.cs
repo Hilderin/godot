@@ -313,7 +313,6 @@ namespace Godot.Bridge
 
                 _pathTypeBiMap.Add(scriptPathAttr.Path, type);
 
-                
                 // This method may be called before initialization.
                 if (NativeFuncs.godotsharp_dotnet_module_is_initialized().ToBool() && Engine.IsEditorHint())
                 {
