@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -295,6 +296,8 @@ namespace Godot.Bridge
             return wrapperType;
         }
 
+        private static ConcurrentDictionary<string, DateTime> _cacheLastWriteTimeCSharpScripts = new ConcurrentDictionary<string, DateTime>();
+
         // Called from GodotPlugins
         // ReSharper disable once UnusedMember.Local
         public static void LookupScriptsInAssembly(Assembly assembly)
@@ -310,11 +313,20 @@ namespace Godot.Bridge
 
                 _pathTypeBiMap.Add(scriptPathAttr.Path, type);
 
+
                 // This method may be called before initialization.
                 if (NativeFuncs.godotsharp_dotnet_module_is_initialized().ToBool() && Engine.IsEditorHint())
                 {
-                    using godot_string scriptPath = Marshaling.ConvertStringToNative(scriptPathAttr.Path);
-                    NativeFuncs.godotsharp_internal_editor_file_system_update_file(scriptPath);
+                    DateTime lastWriteTime = DateTime.MinValue;
+                    if (File.Exists(scriptPathAttr.Path))
+                        lastWriteTime = File.GetLastWriteTime(scriptPathAttr.Path);
+
+                    if (!_cacheLastWriteTimeCSharpScripts.TryGetValue(scriptPathAttr.Path, out var oldLastWriteTime) || oldLastWriteTime != lastWriteTime)
+                    {
+                        using godot_string scriptPath = Marshaling.ConvertStringToNative(scriptPathAttr.Path);
+                        NativeFuncs.godotsharp_internal_editor_file_system_update_file(scriptPath);
+                        _cacheLastWriteTimeCSharpScripts[scriptPathAttr.Path] = lastWriteTime;
+                    }
                 }
 
                 if (AlcReloadCfg.IsAlcReloadingEnabled)
