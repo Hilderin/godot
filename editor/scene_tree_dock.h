@@ -95,7 +95,7 @@ class SceneTreeDock : public VBoxContainer {
 		TOOL_CREATE_USER_INTERFACE,
 		TOOL_CREATE_FAVORITE,
 		TOOL_CENTER_PARENT,
-
+		TOOL_SHOW_SCRIPT_IN_FILE_SYSTEM,
 	};
 
 	enum {
@@ -207,6 +207,7 @@ class SceneTreeDock : public VBoxContainer {
 	void _node_strip_signal_inheritance(Node *p_node);
 	void _load_request(const String &p_path);
 	void _script_open_request(const Ref<Script> &p_script);
+	void _open_script_menu(Node *p_node);
 	void _push_item(Object *p_object);
 	void _handle_select(Node *p_node);
 

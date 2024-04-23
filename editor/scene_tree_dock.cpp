@@ -1390,6 +1390,22 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 
 			scene_tree->get_scene_tree()->grab_focus();
 		} break;
+		case TOOL_SHOW_SCRIPT_IN_FILE_SYSTEM: {
+			List<Node *> selection = editor_selection->get_selected_node_list();
+			List<Node *>::Element *e = selection.front();
+			if (e) {
+				const Node *node = e->get();
+				if (node) {
+					Ref<Script> script = node->get_script();
+					if (!script.is_null()) {
+						String path = script->get_path();
+						if (!path.is_empty()) {
+							FileSystemDock::get_singleton()->navigate_to_path(path);
+						}
+					}
+				}
+			}
+		} break;
 
 		default: {
 			_filter_option_selected(p_tool);
@@ -1646,6 +1662,25 @@ void SceneTreeDock::_load_request(const String &p_path) {
 
 void SceneTreeDock::_script_open_request(const Ref<Script> &p_script) {
 	EditorNode::get_singleton()->push_item_no_inspector(p_script.ptr());
+}
+
+void SceneTreeDock::_open_script_menu(Node *p_node) {
+	if (!profile_allow_script_editing) {
+		return;
+	}
+
+	editor_selection->clear();
+	editor_selection->add_node(p_node);
+
+	menu->clear(false);
+
+	menu->add_icon_shortcut(get_editor_theme_icon(SNAME("ScriptExtend")), ED_GET_SHORTCUT("scene_tree/extend_script"), TOOL_EXTEND_SCRIPT);
+	menu->add_icon_shortcut(get_editor_theme_icon(SNAME("ScriptRemove")), ED_GET_SHORTCUT("scene_tree/detach_script"), TOOL_DETACH_SCRIPT);
+	menu->add_icon_shortcut(get_editor_theme_icon(SNAME("ShowInFileSystem")), ED_GET_SHORTCUT("scene_tree/show_in_file_system"), TOOL_SHOW_SCRIPT_IN_FILE_SYSTEM);
+
+	menu->reset_size();
+	menu->set_position(get_screen_position() + get_local_mouse_position());
+	menu->popup();
 }
 
 void SceneTreeDock::_push_item(Object *p_object) {
@@ -4359,6 +4394,7 @@ SceneTreeDock::SceneTreeDock(Node *p_scene_root, EditorSelection *p_editor_selec
 	scene_tree->connect("node_prerename", callable_mp(this, &SceneTreeDock::_node_prerenamed));
 	scene_tree->connect("open", callable_mp(this, &SceneTreeDock::_load_request));
 	scene_tree->connect("open_script", callable_mp(this, &SceneTreeDock::_script_open_request));
+	scene_tree->connect("open_menu_script", callable_mp(this, &SceneTreeDock::_open_script_menu));
 	scene_tree->connect("nodes_rearranged", callable_mp(this, &SceneTreeDock::_nodes_dragged));
 	scene_tree->connect("files_dropped", callable_mp(this, &SceneTreeDock::_files_dropped));
 	scene_tree->connect("script_dropped", callable_mp(this, &SceneTreeDock::_script_dropped));

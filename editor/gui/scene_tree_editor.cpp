@@ -56,10 +56,6 @@ Node *SceneTreeEditor::get_scene_node() const {
 }
 
 void SceneTreeEditor::_cell_button_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button) {
-	if (p_button != MouseButton::LEFT) {
-		return;
-	}
-
 	if (connect_to_script_mode) {
 		return; //don't do anything in this mode
 	}
@@ -72,114 +68,123 @@ void SceneTreeEditor::_cell_button_pressed(Object *p_item, int p_column, int p_i
 	Node *n = get_node(np);
 	ERR_FAIL_NULL(n);
 
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	if (p_id == BUTTON_SUBSCENE) {
-		if (n == get_scene_node()) {
-			if (n && n->get_scene_inherited_state().is_valid()) {
-				emit_signal(SNAME("open"), n->get_scene_inherited_state()->get_path());
-			}
-		} else {
-			emit_signal(SNAME("open"), n->get_scene_file_path());
-		}
-	} else if (p_id == BUTTON_SCRIPT) {
-		Ref<Script> script_typed = n->get_script();
-		if (!script_typed.is_null()) {
-			emit_signal(SNAME("open_script"), script_typed);
-		}
-
-	} else if (p_id == BUTTON_VISIBILITY) {
-		undo_redo->create_action(TTR("Toggle Visible"));
-		_toggle_visible(n);
-		List<Node *> selection = editor_selection->get_selected_node_list();
-		if (selection.size() > 1 && selection.find(n) != nullptr) {
-			for (Node *nv : selection) {
-				ERR_FAIL_NULL(nv);
-				if (nv == n) {
-					continue;
+	if (p_button == MouseButton::LEFT) {
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+		if (p_id == BUTTON_SUBSCENE) {
+			if (n == get_scene_node()) {
+				if (n && n->get_scene_inherited_state().is_valid()) {
+					emit_signal(SNAME("open"), n->get_scene_inherited_state()->get_path());
 				}
-				_toggle_visible(nv);
+			} else {
+				emit_signal(SNAME("open"), n->get_scene_file_path());
 			}
-		}
-		undo_redo->commit_action();
-	} else if (p_id == BUTTON_LOCK) {
-		undo_redo->create_action(TTR("Unlock Node"));
-		undo_redo->add_do_method(n, "remove_meta", "_edit_lock_");
-		undo_redo->add_undo_method(n, "set_meta", "_edit_lock_", true);
-		undo_redo->add_do_method(this, "_update_tree");
-		undo_redo->add_undo_method(this, "_update_tree");
-		undo_redo->add_do_method(this, "emit_signal", "node_changed");
-		undo_redo->add_undo_method(this, "emit_signal", "node_changed");
-		undo_redo->commit_action();
-	} else if (p_id == BUTTON_PIN) {
-		if (n->is_class("AnimationMixer")) {
-			AnimationPlayerEditor::get_singleton()->unpin();
-			_update_tree();
-		}
+		} else if (p_id == BUTTON_SCRIPT) {
+			Ref<Script> script_typed = n->get_script();
+			if (!script_typed.is_null()) {
+				emit_signal(SNAME("open_script"), script_typed);
+			}
 
-	} else if (p_id == BUTTON_GROUP) {
-		undo_redo->create_action(TTR("Ungroup Children"));
-
-		if (n->is_class("CanvasItem") || n->is_class("Node3D")) {
-			undo_redo->add_do_method(n, "remove_meta", "_edit_group_");
-			undo_redo->add_undo_method(n, "set_meta", "_edit_group_", true);
+		} else if (p_id == BUTTON_VISIBILITY) {
+			undo_redo->create_action(TTR("Toggle Visible"));
+			_toggle_visible(n);
+			List<Node *> selection = editor_selection->get_selected_node_list();
+			if (selection.size() > 1 && selection.find(n) != nullptr) {
+				for (Node *nv : selection) {
+					ERR_FAIL_NULL(nv);
+					if (nv == n) {
+						continue;
+					}
+					_toggle_visible(nv);
+				}
+			}
+			undo_redo->commit_action();
+		} else if (p_id == BUTTON_LOCK) {
+			undo_redo->create_action(TTR("Unlock Node"));
+			undo_redo->add_do_method(n, "remove_meta", "_edit_lock_");
+			undo_redo->add_undo_method(n, "set_meta", "_edit_lock_", true);
 			undo_redo->add_do_method(this, "_update_tree");
 			undo_redo->add_undo_method(this, "_update_tree");
 			undo_redo->add_do_method(this, "emit_signal", "node_changed");
 			undo_redo->add_undo_method(this, "emit_signal", "node_changed");
+			undo_redo->commit_action();
+		} else if (p_id == BUTTON_PIN) {
+			if (n->is_class("AnimationMixer")) {
+				AnimationPlayerEditor::get_singleton()->unpin();
+				_update_tree();
+			}
+
+		} else if (p_id == BUTTON_GROUP) {
+			undo_redo->create_action(TTR("Ungroup Children"));
+
+			if (n->is_class("CanvasItem") || n->is_class("Node3D")) {
+				undo_redo->add_do_method(n, "remove_meta", "_edit_group_");
+				undo_redo->add_undo_method(n, "set_meta", "_edit_group_", true);
+				undo_redo->add_do_method(this, "_update_tree");
+				undo_redo->add_undo_method(this, "_update_tree");
+				undo_redo->add_do_method(this, "emit_signal", "node_changed");
+				undo_redo->add_undo_method(this, "emit_signal", "node_changed");
+			}
+			undo_redo->commit_action();
+		} else if (p_id == BUTTON_WARNING) {
+			const PackedStringArray warnings = n->get_configuration_warnings();
+
+			if (warnings.is_empty()) {
+				return;
+			}
+
+			// Improve looks on tooltip, extra spacing on non-bullet point newlines.
+			const String bullet_point = U"•  ";
+			String all_warnings;
+			for (const String &w : warnings) {
+				all_warnings += "\n" + bullet_point + w;
+			}
+
+			// Limit the line width while keeping some padding.
+			// It is not efficient, but it does not have to be.
+			const PackedInt32Array boundaries = TS->string_get_word_breaks(all_warnings, "", 80);
+			PackedStringArray lines;
+			for (int i = 0; i < boundaries.size(); i += 2) {
+				const int start = boundaries[i];
+				const int end = boundaries[i + 1];
+				const String line = all_warnings.substr(start, end - start);
+				lines.append(line);
+			}
+			all_warnings = String("\n").join(lines).indent("    ").replace(U"    •", U"\n•").substr(2); // We don't want the first two newlines.
+
+			warning->set_text(all_warnings);
+			warning->popup_centered();
+
+		} else if (p_id == BUTTON_SIGNALS) {
+			editor_selection->clear();
+			editor_selection->add_node(n);
+
+			set_selected(n);
+
+			EditorDockManager::get_singleton()->focus_dock(NodeDock::get_singleton());
+			NodeDock::get_singleton()->show_connections();
+		} else if (p_id == BUTTON_GROUPS) {
+			editor_selection->clear();
+			editor_selection->add_node(n);
+
+			set_selected(n);
+
+			EditorDockManager::get_singleton()->focus_dock(NodeDock::get_singleton());
+			NodeDock::get_singleton()->show_groups();
+		} else if (p_id == BUTTON_UNIQUE) {
+			undo_redo->create_action(TTR("Disable Scene Unique Name"));
+			undo_redo->add_do_method(n, "set_unique_name_in_owner", false);
+			undo_redo->add_undo_method(n, "set_unique_name_in_owner", true);
+			undo_redo->add_do_method(this, "_update_tree");
+			undo_redo->add_undo_method(this, "_update_tree");
+			undo_redo->commit_action();
 		}
-		undo_redo->commit_action();
-	} else if (p_id == BUTTON_WARNING) {
-		const PackedStringArray warnings = n->get_configuration_warnings();
-
-		if (warnings.is_empty()) {
-			return;
+	} else if (p_button == MouseButton::RIGHT) {
+		if (p_id == BUTTON_SCRIPT) {
+			Ref<Script> script_typed = n->get_script();
+			if (!script_typed.is_null()) {
+				emit_signal(SNAME("open_menu_script"), n);
+			}
 		}
-
-		// Improve looks on tooltip, extra spacing on non-bullet point newlines.
-		const String bullet_point = U"•  ";
-		String all_warnings;
-		for (const String &w : warnings) {
-			all_warnings += "\n" + bullet_point + w;
-		}
-
-		// Limit the line width while keeping some padding.
-		// It is not efficient, but it does not have to be.
-		const PackedInt32Array boundaries = TS->string_get_word_breaks(all_warnings, "", 80);
-		PackedStringArray lines;
-		for (int i = 0; i < boundaries.size(); i += 2) {
-			const int start = boundaries[i];
-			const int end = boundaries[i + 1];
-			const String line = all_warnings.substr(start, end - start);
-			lines.append(line);
-		}
-		all_warnings = String("\n").join(lines).indent("    ").replace(U"    •", U"\n•").substr(2); // We don't want the first two newlines.
-
-		warning->set_text(all_warnings);
-		warning->popup_centered();
-
-	} else if (p_id == BUTTON_SIGNALS) {
-		editor_selection->clear();
-		editor_selection->add_node(n);
-
-		set_selected(n);
-
-		EditorDockManager::get_singleton()->focus_dock(NodeDock::get_singleton());
-		NodeDock::get_singleton()->show_connections();
-	} else if (p_id == BUTTON_GROUPS) {
-		editor_selection->clear();
-		editor_selection->add_node(n);
-
-		set_selected(n);
-
-		EditorDockManager::get_singleton()->focus_dock(NodeDock::get_singleton());
-		NodeDock::get_singleton()->show_groups();
-	} else if (p_id == BUTTON_UNIQUE) {
-		undo_redo->create_action(TTR("Disable Scene Unique Name"));
-		undo_redo->add_do_method(n, "set_unique_name_in_owner", false);
-		undo_redo->add_undo_method(n, "set_unique_name_in_owner", true);
-		undo_redo->add_do_method(this, "_update_tree");
-		undo_redo->add_undo_method(this, "_update_tree");
-		undo_redo->commit_action();
 	}
 }
 
@@ -1523,6 +1528,7 @@ void SceneTreeEditor::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("open"));
 	ADD_SIGNAL(MethodInfo("open_script"));
+	ADD_SIGNAL(MethodInfo("open_menu_script"));
 }
 
 SceneTreeEditor::SceneTreeEditor(bool p_label, bool p_can_rename, bool p_can_open_instance) {
