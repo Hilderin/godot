@@ -91,6 +91,10 @@ void ProjectSettingsEditor::update_plugins() {
 	plugin_settings->update_plugins();
 }
 
+void ProjectSettingsEditor::create_autoloads() {
+	autoload_settings->create_autoloads();
+}
+
 void ProjectSettingsEditor::_setting_edited(const String &p_name) {
 	queue_save();
 }
