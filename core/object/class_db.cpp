@@ -115,6 +115,12 @@ public:
 		const StringName &name = *(StringName *)p_name;
 		const Variant &value = *(const Variant *)p_value;
 
+		// The script property needs to be set on the object directly with set_script
+		// in Object::set and not only in the PlaceholderExtensionInstance.
+		if (name == CoreStringName(script)) {
+			return false;
+		}
+
 		self->set(name, value);
 
 		// We have to return true so Godot doesn't try to call the real setter function.
@@ -125,6 +131,12 @@ public:
 		PlaceholderExtensionInstance *self = (PlaceholderExtensionInstance *)p_instance;
 		const StringName &name = *(StringName *)p_name;
 		Variant *value = (Variant *)r_ret;
+
+		// The script property should be on the object directly
+		// and not only in the PlaceholderExtensionInstance.
+		if (name == CoreStringName(script)) {
+			return false;
+		}
 
 		*value = self->get(name);
 
