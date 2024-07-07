@@ -3807,9 +3807,9 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		case WM_ACTIVATE: {
 			// Activation can happen just after the window has been created, even before the callbacks are set.
 			// Therefore, it's safer to defer the delivery of the event.
-			if (!windows[window_id].activate_timer_id) {
-				windows[window_id].activate_timer_id = SetTimer(windows[window_id].hWnd, 1, USER_TIMER_MINIMUM, (TIMERPROC) nullptr);
-			}
+			// It's important to set an nIDEvent different from the SetTimer for move_timer_id because
+			// if the same nIDEvent is passed, the timer is replaced and the same timer_id is returned.
+			windows[window_id].activate_timer_id = SetTimer(windows[window_id].hWnd, 2, USER_TIMER_MINIMUM, (TIMERPROC) nullptr);
 			windows[window_id].activate_state = GET_WM_ACTIVATE_STATE(wParam, lParam);
 			return 0;
 		} break;
