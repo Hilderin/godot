@@ -43,6 +43,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 req = threading.Condition()
 res = threading.Condition()
 info = None
+export_err = None
 def xmlrpc_server():
   server = SimpleXMLRPCServer(('127.0.0.1', %d))
   server.register_function(export_gltf)
@@ -54,6 +55,10 @@ def export_gltf(opts):
     req.notify()
   with res:
     res.wait()
+  if export_err:
+    raise export_err
+  # Important to return a value to prevent the error 'cannot marshal None unless allow_none is enabled'.
+  return 'OK'
 if bpy.app.version < (3, 0, 0):
   print('Blender 3.0 or higher is required.', file=sys.stderr)
 threading.Thread(target=xmlrpc_server).start()
@@ -64,12 +69,13 @@ while True:
   method, opts = info
   if method == 'export_gltf':
     try:
+      export_err = None
       bpy.ops.wm.open_mainfile(filepath=opts['path'])
       if opts['unpack_all']:
         bpy.ops.file.unpack_all(method='USE_LOCAL')
       bpy.ops.export_scene.gltf(**opts['gltf_options'])
-    except:
-      pass
+    except Exception as e:
+      export_err = e
   info = None
   with res:
     res.notify()
@@ -184,7 +190,9 @@ Error EditorImportBlendRunner::do_import(const Dictionary &p_options) {
 				EditorSettings::get_singleton()->set_manually("filesystem/import/blender/rpc_port", 0);
 				rpc_port = 0;
 			}
-			err = do_import_direct(p_options);
+			if (err != ERR_QUERY_FAILED) {
+				err = do_import_direct(p_options);
+			}
 		}
 		return err;
 	} else {
@@ -268,7 +276,22 @@ Error EditorImportBlendRunner::do_import_rpc(const Dictionary &p_options) {
 			}
 			case HTTPClient::STATUS_BODY: {
 				client->poll();
-				// Parse response here if needed. For now we can just ignore it.
+				String error_message;
+				PackedByteArray response_chunk = client->read_response_body_chunk();
+				if (client->get_response_code() != HTTPClient::RESPONSE_OK) {
+					String response_text;
+					if (response_chunk.size() > 0) {
+						response_text = String::utf8((const char *)response_chunk.ptr(), response_chunk.size());
+					} else {
+						response_text = "No response from Blender.";
+					}
+					ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Error received from Blender - status code: %s, error: %s", client->get_response_code(), response_text));
+				} else {
+					if (!_parse_blender_http_response(response_chunk, error_message)) {
+						ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Error received from Blender: %s", error_message));
+					}
+				}
+
 				done = true;
 				break;
 			}
@@ -279,6 +302,65 @@ Error EditorImportBlendRunner::do_import_rpc(const Dictionary &p_options) {
 	}
 
 	return OK;
+}
+
+bool EditorImportBlendRunner::_parse_blender_http_response(const Vector<uint8_t> &p_response_data, String &r_error_message) {
+	// Based on RPC Xml spec from: https://xmlrpc.com/spec.md
+	Ref<XMLParser> parser = memnew(XMLParser);
+	Error err = parser->open_buffer(p_response_data);
+	if (err) {
+		r_error_message = "Invalid RPC response XML.";
+		return false;
+	}
+
+	if (parser->read() != OK) {
+		r_error_message = "Invalid RPC response XML.";
+		return false;
+	}
+
+	if (parser->get_node_name().find("?xml") == 0) {
+		//Skip <?xml ... >
+		parser->read();
+	}
+
+	if (parser->get_node_name() != "methodResponse") {
+		r_error_message = vformat("Expected 'methodResponse' in RPC response XML, actual: %s", parser->get_node_name());
+		return false;
+	}
+
+	parser->read();
+	if (parser->get_node_name() != "fault") {
+		return true;
+	}
+
+	// Received an error.
+	while (parser->read() == OK) {
+		if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "member") {
+			while (parser->read() == OK) {
+				if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "name") {
+					parser->read();
+					if (parser->get_node_data() == "faultString") {
+						// Skip </name>
+						parser->read();
+						parser->read();
+						if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "value") {
+							parser->read();
+							if (parser->get_node_name() == "string") {
+								parser->read();
+								r_error_message = parser->get_node_data().trim_suffix("\n");
+								return false;
+							}
+						}
+					}
+				} else if (parser->get_node_type() == XMLParser::NODE_ELEMENT_END && parser->get_node_name() == "member") {
+					break;
+				}
+			}
+		}
+	}
+
+	r_error_message = "Unknown error.";
+	return false;
 }
 
 Error EditorImportBlendRunner::do_import_direct(const Dictionary &p_options) {
