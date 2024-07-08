@@ -58,7 +58,7 @@ def export_gltf(opts):
   if export_err:
     raise export_err
   # Important to return a value to prevent the error 'cannot marshal None unless allow_none is enabled'.
-  return 'OK'
+  return 'BLENDER_GODOT_EXPORT_SUCCESSFUL'
 if bpy.app.version < (3, 0, 0):
   print('Blender 3.0 or higher is required.', file=sys.stderr)
 threading.Thread(target=xmlrpc_server).start()
