@@ -267,6 +267,7 @@ Error EditorImportBlendRunner::do_import_rpc(const Dictionary &p_options) {
 
 	// Wait for response.
 	bool done = false;
+	PackedByteArray response;
 	while (!done) {
 		status = client->get_status();
 		switch (status) {
@@ -276,22 +277,10 @@ Error EditorImportBlendRunner::do_import_rpc(const Dictionary &p_options) {
 			}
 			case HTTPClient::STATUS_BODY: {
 				client->poll();
-				String error_message;
-				PackedByteArray response_chunk = client->read_response_body_chunk();
-				if (client->get_response_code() != HTTPClient::RESPONSE_OK) {
-					String response_text;
-					if (response_chunk.size() > 0) {
-						response_text = String::utf8((const char *)response_chunk.ptr(), response_chunk.size());
-					} else {
-						response_text = "No response from Blender.";
-					}
-					ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Error received from Blender - status code: %s, error: %s", client->get_response_code(), response_text));
-				} else {
-					if (!_parse_blender_http_response(response_chunk, error_message)) {
-						ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Error received from Blender: %s", error_message));
-					}
-				}
-
+				response.append_array(client->read_response_body_chunk());
+				break;
+			}
+			case HTTPClient::STATUS_CONNECTED: {
 				done = true;
 				break;
 			}
@@ -301,66 +290,54 @@ Error EditorImportBlendRunner::do_import_rpc(const Dictionary &p_options) {
 		}
 	}
 
-	return OK;
-}
-
-bool EditorImportBlendRunner::_parse_blender_http_response(const Vector<uint8_t> &p_response_data, String &r_error_message) {
-	// Based on RPC Xml spec from: https://xmlrpc.com/spec.md
-	Ref<XMLParser> parser = memnew(XMLParser);
-	Error err = parser->open_buffer(p_response_data);
-	if (err) {
-		r_error_message = "Invalid RPC response XML.";
-		return false;
+	String response_text = "No response from Blender.";
+	if (response.size() > 0) {
+		response_text = String::utf8((const char *)response.ptr(), response.size());
 	}
 
-	if (parser->read() != OK) {
-		r_error_message = "Invalid RPC response XML.";
-		return false;
-	}
-
-	if (parser->get_node_name().find("?xml") == 0) {
-		//Skip <?xml ... >
-		parser->read();
-	}
-
-	if (parser->get_node_name() != "methodResponse") {
-		r_error_message = vformat("Expected 'methodResponse' in RPC response XML, actual: %s", parser->get_node_name());
-		return false;
-	}
-
-	parser->read();
-	if (parser->get_node_name() != "fault") {
-		return true;
-	}
-
-	// Received an error.
-	while (parser->read() == OK) {
-		if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "member") {
-			while (parser->read() == OK) {
-				if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "name") {
-					parser->read();
-					if (parser->get_node_data() == "faultString") {
-						// Skip </name>
-						parser->read();
-						parser->read();
-						if (parser->get_node_type() == XMLParser::NODE_ELEMENT && parser->get_node_name() == "value") {
-							parser->read();
-							if (parser->get_node_name() == "string") {
-								parser->read();
-								r_error_message = parser->get_node_data().trim_suffix("\n");
-								return false;
-							}
-						}
-					}
-				} else if (parser->get_node_type() == XMLParser::NODE_ELEMENT_END && parser->get_node_name() == "member") {
-					break;
-				}
+	if (client->get_response_code() != HTTPClient::RESPONSE_OK) {
+		ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Error received from Blender - status code: %s, error: %s", client->get_response_code(), response_text));
+	} else if (response_text.find("BLENDER_GODOT_EXPORT_SUCCESSFUL") < 0) {
+		// Previous versions of Godot used a Python script where the RPC function did not return
+		// a value, causing the error 'cannot marshal None unless allow_none is enabled'.
+		// If an older version of Godot is running and has started Blender with this script,
+		// we will receive the error, but there's a good chance that the import was successful.
+		// We are discarding this error to maintain backward compatibility and prevent situations
+		// where the user needs to close the older version of Godot or kill Blender.
+		if (response_text.find("cannot marshal None unless allow_none is enabled") < 0) {
+			String error_message;
+			if (_extract_error_message_xml(response, error_message)) {
+				ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Blender exportation failed: %s", error_message));
+			} else {
+				ERR_FAIL_V_MSG(ERR_QUERY_FAILED, vformat("Blender exportation failed: %s", response_text));
 			}
 		}
 	}
 
-	r_error_message = "Unknown error.";
-	return false;
+	return OK;
+}
+
+bool EditorImportBlendRunner::_extract_error_message_xml(const Vector<uint8_t> &p_response_data, String &r_error_message) {
+	// Based on RPC Xml spec from: https://xmlrpc.com/spec.md
+	Ref<XMLParser> parser = memnew(XMLParser);
+	Error err = parser->open_buffer(p_response_data);
+	if (err) {
+		return false;
+	}
+
+	r_error_message = String();
+	while (parser->read() == OK) {
+		if (parser->get_node_type() == XMLParser::NODE_TEXT) {
+			if (parser->get_node_data().size()) {
+				if (r_error_message.size()) {
+					r_error_message += " ";
+				}
+				r_error_message += parser->get_node_data().trim_suffix("\n");
+			}
+		}
+	}
+
+	return r_error_message.size();
 }
 
 Error EditorImportBlendRunner::do_import_direct(const Dictionary &p_options) {

@@ -317,10 +317,9 @@ void EditorNode::shortcut_input(const Ref<InputEvent> &p_event) {
 
 	Ref<InputEventKey> k = p_event;
 	if ((k.is_valid() && k->is_pressed() && !k->is_echo()) || Object::cast_to<InputEventShortcut>(*p_event)) {
-		bool is_handled = false;
+		bool is_handled = true;
 		if (ED_IS_SHORTCUT("editor/filter_files", p_event)) {
 			FileSystemDock::get_singleton()->focus_on_filter();
-			is_handled = true;
 		} else if (ED_IS_SHORTCUT("editor/editor_2d", p_event)) {
 			editor_select(EDITOR_2D);
 			is_handled = true;
@@ -347,7 +346,8 @@ void EditorNode::shortcut_input(const Ref<InputEvent> &p_event) {
 			is_handled = true;
 		} else if (ED_IS_SHORTCUT("editor/toggle_last_opened_bottom_panel", p_event)) {
 			bottom_panel->toggle_last_opened_bottom_panel();
-			is_handled = true;
+		} else {
+			is_handled = false;
 		}
 
 		if (is_handled) {
