@@ -2754,7 +2754,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 					do {
 						if (current_index < tdata.max_index.get()) {
 							current_index = tdata.max_index.get();
-							pr.step(reimport_files[current_index].path.get_file(), current_index);
+							ep->step(reimport_files[current_index].path.get_file(), current_index);
 						}
 						OS::get_singleton()->delay_usec(1);
 					} while (!WorkerThreadPool::get_singleton()->is_group_task_completed(group_task));
@@ -2794,7 +2794,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			}
 		}
 	}
-	pr.step(TTR("Finalizing Asset Import..."), p_files.size());
+	ep->step(TTR("Finalizing Asset Import..."), p_files.size());
 
 	ResourceUID::get_singleton()->update_cache(); // After reimporting, update the cache.
 	_save_filesystem_cache();
