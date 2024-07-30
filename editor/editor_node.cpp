@@ -1051,8 +1051,7 @@ void EditorNode::_resources_reimporting(const Vector<String> &p_resources) {
 	// the inherited scene. Then, get_modified_properties_for_node will return the mesh property,
 	// which will trigger a recopy of the previous mesh, preventing the reload.
 	for (const String &res_path : p_resources) {
-		String file_type = ResourceLoader::get_resource_type(res_path);
-		if (file_type == "PackedScene") {
+		if (ResourceLoader::get_resource_type(res_path) == "PackedScene") {
 			preload_reimporting_with_path_in_edited_scenes(res_path);
 		}
 	}
@@ -3362,13 +3361,17 @@ void EditorNode::_exit_editor(int p_exit_code) {
 	dim_editor(true);
 
 	// Unload addons before quitting to allow cleanup.
+	unload_editor_addons();
+
+	get_tree()->quit(p_exit_code);
+}
+
+void EditorNode::unload_editor_addons() {
 	for (const KeyValue<String, EditorPlugin *> &E : addon_name_to_plugin) {
 		print_verbose(vformat("Unloading addon: %s", E.key));
 		remove_editor_plugin(E.value, false);
 		memdelete(E.value);
 	}
-
-	get_tree()->quit(p_exit_code);
 }
 
 void EditorNode::_discard_changes(const String &p_str) {
@@ -3412,8 +3415,7 @@ void EditorNode::_discard_changes(const String &p_str) {
 			}
 			args.push_back("--project-manager");
 
-			Error err = OS::get_singleton()->create_instance(args);
-			ERR_FAIL_COND(err);
+			OS::get_singleton()->set_restart_on_exit(true, args);
 		} break;
 		case RELOAD_CURRENT_PROJECT: {
 			restart_editor();
@@ -4303,7 +4305,8 @@ bool EditorNode::is_additional_node_in_scene(Node *p_edited_scene, Node *p_reimp
 			// It's important to process added nodes from the base scene in the inherited scene as
 			// additional nodes to ensure they do not disappear on reload.
 			// When p_reimported_root == p_edited_scene that means the edited scene
-			// is the reimported scene and that the node in the the base scene, so it's not an addition.
+			// is the reimported scene, in that case the node is in the root base scene,
+			// so it's not an addition, otherwise, the node would be added twice on reload.
 			(p_node->get_owner() != p_edited_scene || p_reimported_root == p_edited_scene);
 
 	if (node_part_of_subscene) {
@@ -5835,15 +5838,16 @@ void EditorNode::get_edited_scene_map(const String &p_instance_path, HashMap<int
 	// Walk through each opened scene to get a global list of all instances which match
 	// the current reimported scenes.
 	for (int i = 0; i < editor_data.get_edited_scene_count(); i++) {
-		if (editor_data.get_scene_path(i) != p_instance_path) {
-			Node *edited_scene_root = editor_data.get_edited_scene_root(i);
+		if (editor_data.get_scene_path(i) == p_instance_path) {
+			continue;
+		}
+		Node *edited_scene_root = editor_data.get_edited_scene_root(i);
 
-			if (edited_scene_root) {
-				List<Node *> valid_nodes;
-				find_all_instances_inheriting_path_in_node(edited_scene_root, edited_scene_root, p_instance_path, valid_nodes);
-				if (valid_nodes.size() > 0) {
-					p_edited_scene_map[i] = valid_nodes;
-				}
+		if (edited_scene_root) {
+			List<Node *> valid_nodes;
+			find_all_instances_inheriting_path_in_node(edited_scene_root, edited_scene_root, p_instance_path, valid_nodes);
+			if (valid_nodes.size() > 0) {
+				p_edited_scene_map[i] = valid_nodes;
 			}
 		}
 	}
@@ -5884,7 +5888,6 @@ void EditorNode::preload_reimporting_with_path_in_edited_scenes(const String &p_
 
 	if (edited_scene_map.size() > 0) {
 		scenes_modification_table.clear();
-		scenes_addition_list.clear();
 
 		int original_edited_scene_idx = editor_data.get_edited_scene();
 		Node *original_edited_scene_root = editor_data.get_edited_scene_root();
@@ -5906,11 +5909,8 @@ void EditorNode::preload_reimporting_with_path_in_edited_scenes(const String &p_
 				HashMap<NodePath, ModificationNodeEntry> modification_table;
 				get_preload_scene_modification_table(current_edited_scene, original_node, original_node, modification_table);
 
-				if (modification_table.size()) {
+				if (modification_table.size() > 0) {
 					NodePath scene_path_to_node = current_edited_scene->get_path_to(original_node);
-					if (!scenes_modification_table.has(current_scene_idx)) {
-						scenes_modification_table[current_scene_idx] = HashMap<NodePath, HashMap<NodePath, ModificationNodeEntry>>();
-					}
 					scenes_modification_table[current_scene_idx][scene_path_to_node] = modification_table;
 				}
 			}
@@ -6071,10 +6071,8 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 				// For additional nodes which are part of the current scene, they get added to the addition table.
 				HashMap<NodePath, ModificationNodeEntry> modification_table;
 				List<AdditiveNodeEntry> addition_list;
-				if (scenes_modification_table.has(current_scene_idx)) {
-					if (scenes_modification_table[current_scene_idx].has(scene_path_to_node)) {
-						modification_table = scenes_modification_table[current_scene_idx][scene_path_to_node];
-					}
+				if (scenes_modification_table.has(current_scene_idx) && scenes_modification_table[current_scene_idx].has(scene_path_to_node)) {
+					modification_table = scenes_modification_table[current_scene_idx][scene_path_to_node];
 				}
 				update_reimported_diff_data_for_additional_nodes(current_edited_scene, original_node, original_node, modification_table, addition_list);
 
@@ -6577,7 +6575,6 @@ EditorNode::EditorNode() {
 		// No scripting by default if in editor (except for tool).
 		ScriptServer::set_scripting_enabled(false);
 
-		Input::get_singleton()->set_use_accumulated_input(true);
 		if (!DisplayServer::get_singleton()->is_touchscreen_available()) {
 			// Only if no touchscreen ui hint, disable emulation just in case.
 			Input::get_singleton()->set_emulate_touch_from_mouse(false);
@@ -6624,6 +6621,14 @@ EditorNode::EditorNode() {
 	run_surface_upgrade_tool = EditorSettings::get_singleton()->get_project_metadata("surface_upgrade_tool", "run_on_restart", false);
 	if (run_surface_upgrade_tool) {
 		SurfaceUpgradeTool::get_singleton()->begin_upgrade();
+	}
+
+	{
+		bool agile_input_event_flushing = EDITOR_GET("input/buffering/agile_event_flushing");
+		bool use_accumulated_input = EDITOR_GET("input/buffering/use_accumulated_input");
+
+		Input::get_singleton()->set_agile_input_event_flushing(agile_input_event_flushing);
+		Input::get_singleton()->set_use_accumulated_input(use_accumulated_input);
 	}
 
 	{

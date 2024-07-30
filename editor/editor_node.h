@@ -821,7 +821,6 @@ public:
 	};
 
 	HashMap<int, HashMap<NodePath, HashMap<NodePath, ModificationNodeEntry>>> scenes_modification_table;
-	HashMap<int, List<AdditiveNodeEntry>> scenes_addition_list;
 
 	void update_node_from_node_modification_entry(Node *p_node, ModificationNodeEntry &p_node_modification);
 
@@ -919,6 +918,7 @@ public:
 	void save_before_run();
 	void try_autosave();
 	void restart_editor();
+	void unload_editor_addons();
 
 	void dim_editor(bool p_dimming);
 	bool is_editor_dimmed() const;
