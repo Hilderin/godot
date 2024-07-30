@@ -587,10 +587,12 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 	return false; //nothing changed
 }
 
-bool EditorFileSystem::_scan_import_support(const Vector<String> &reimports) {
-	if (import_support_queries.size() == 0) {
+bool EditorFileSystem::scan_import_support(const Vector<String> &reimports) {
+	if (import_support_queries.size() == 0 || scanning_import_support) {
 		return false;
 	}
+	scanning_import_support = true;
+
 	HashMap<String, int> import_support_test;
 	Vector<bool> import_support_tested;
 	import_support_tested.resize(import_support_queries.size());
@@ -605,6 +607,7 @@ bool EditorFileSystem::_scan_import_support(const Vector<String> &reimports) {
 	}
 
 	if (import_support_test.size() == 0) {
+		scanning_import_support = false;
 		return false; //well nothing to do
 	}
 
@@ -618,11 +621,13 @@ bool EditorFileSystem::_scan_import_support(const Vector<String> &reimports) {
 	for (int i = 0; i < import_support_tested.size(); i++) {
 		if (import_support_tested[i]) {
 			if (import_support_queries.write[i]->query()) {
+				scanning_import_support = false;
 				return true;
 			}
 		}
 	}
 
+	scanning_import_support = false;
 	return false;
 }
 
@@ -785,7 +790,7 @@ bool EditorFileSystem::_update_scan_actions() {
 	}
 
 	if (reimports.size()) {
-		if (_scan_import_support(reimports)) {
+		if (scan_import_support(reimports)) {
 			return true;
 		}
 
@@ -1371,7 +1376,7 @@ String EditorFileSystem::_get_file_by_class_name(EditorFileSystemDirectory *p_di
 
 void EditorFileSystem::scan_changes() {
 	if (first_scan || // Prevent a premature changes scan from inhibiting the first full scan
-			scanning || scanning_changes || thread.is_started()) {
+			scanning || scanning_changes || thread.is_started() || importing || scanning_import_support) {
 		scan_changes_pending = true;
 		set_process(true);
 		return;

@@ -45,6 +45,12 @@ class ImportDockParameters;
 class ImportDock : public VBoxContainer {
 	GDCLASS(ImportDock, VBoxContainer);
 
+	enum Action {
+		IMPORT_DOCK_NONE,
+		IMPORT_DOCK_REIMPORT,
+		IMPORT_DOCK_SHOW_ADVANCED_OPTIONS
+	};
+
 	Label *imported = nullptr;
 	OptionButton *import_as = nullptr;
 	MenuButton *preset = nullptr;
@@ -66,6 +72,7 @@ class ImportDock : public VBoxContainer {
 
 	VBoxContainer *content = nullptr;
 	Label *select_a_resource = nullptr;
+	ImportDock::Action current_action = IMPORT_DOCK_NONE;
 
 	void _preset_selected(int p_idx);
 	void _importer_selected(int i_idx);

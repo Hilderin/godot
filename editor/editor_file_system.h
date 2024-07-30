@@ -180,6 +180,7 @@ class EditorFileSystem : public Node {
 	bool importing = false;
 	bool first_scan = true;
 	bool scan_changes_pending = false;
+	bool scanning_import_support = false;
 	float scan_total;
 	String filesystem_settings_version_for_import;
 	bool revalidate_import_files = false;
@@ -317,7 +318,6 @@ class EditorFileSystem : public Node {
 	static ResourceUID::ID _resource_saver_get_resource_id_for_path(const String &p_path, bool p_generate);
 
 	bool _scan_extensions();
-	bool _scan_import_support(const Vector<String> &reimports);
 
 	Vector<Ref<EditorFileSystemImportFormatSupportQuery>> import_support_queries;
 
@@ -351,6 +351,7 @@ public:
 	String get_file_type(const String &p_file) const;
 	EditorFileSystemDirectory *find_file(const String &p_file, int *r_index) const;
 
+	bool scan_import_support(const Vector<String> &reimports);
 	void reimport_files(const Vector<String> &p_files);
 	Error reimport_append(const String &p_file, const HashMap<StringName, Variant> &p_custom_options, const String &p_custom_importer, Variant p_generator_parameters);
 

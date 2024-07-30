@@ -370,7 +370,8 @@ void ImportDock::reimport_resources(const Vector<String> &p_paths) {
 			break;
 	}
 
-	_reimport_attempt();
+	current_action = IMPORT_DOCK_REIMPORT;
+	set_process(true);
 }
 
 void ImportDock::_update_preset_menu() {
@@ -530,15 +531,8 @@ static bool _find_owners(EditorFileSystemDirectory *efsd, const String &p_path) 
 }
 
 void ImportDock::_reimport_pressed() {
-	_reimport_attempt();
-
-	if (params->importer.is_valid() && params->paths.size() == 1 && params->importer->has_advanced_options()) {
-		advanced->show();
-		advanced_spacer->show();
-	} else {
-		advanced->hide();
-		advanced_spacer->hide();
-	}
+	current_action = IMPORT_DOCK_REIMPORT;
+	set_process(true);
 }
 
 void ImportDock::_reimport_attempt() {
@@ -627,9 +621,8 @@ void ImportDock::_reimport_and_cleanup() {
 }
 
 void ImportDock::_advanced_options() {
-	if (params->paths.size() == 1 && params->importer.is_valid()) {
-		params->importer->show_advanced_options(params->paths[0]);
-	}
+	current_action = IMPORT_DOCK_SHOW_ADVANCED_OPTIONS;
+	set_process(true);
 }
 
 void ImportDock::_reimport() {
@@ -736,6 +729,37 @@ void ImportDock::_notification(int p_what) {
 			import_opts->edit(params);
 			label_warning->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
 		} break;
+
+		case NOTIFICATION_PROCESS: {
+			switch (current_action) {
+				case IMPORT_DOCK_REIMPORT: {
+					current_action = IMPORT_DOCK_NONE;
+					set_process(false);
+
+					if (!EditorFileSystem::get_singleton()->scan_import_support(params->paths)) {
+						_reimport_attempt();
+
+						if (params->importer.is_valid() && params->paths.size() == 1 && params->importer->has_advanced_options()) {
+							advanced->show();
+							advanced_spacer->show();
+						} else {
+							advanced->hide();
+							advanced_spacer->hide();
+						}
+					}
+				} break;
+				case IMPORT_DOCK_SHOW_ADVANCED_OPTIONS: {
+					current_action = IMPORT_DOCK_NONE;
+					set_process(false);
+
+					if (!EditorFileSystem::get_singleton()->scan_import_support(params->paths)) {
+						if (params->paths.size() == 1 && params->importer.is_valid()) {
+							params->importer->show_advanced_options(params->paths[0]);
+						}
+					}
+				} break;
+			}
+		}
 	}
 }
 
