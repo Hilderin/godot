@@ -96,7 +96,7 @@ void EditorNavTabs::_update_tab_list() {
 
 	int index = 0;
 	for (const EditorTab *tab : _tabs) {
-		tab_list->add_item(vformat("%s (%s)", tab->get_name(), tab->get_last_used()), tab->get_icon());
+		tab_list->add_item(tab->get_name(), tab->get_icon());
 		tab_list->set_item_tooltip(index, tab->get_resource_path());
 		tab_list->set_item_selectable(index, true);
 		index++;
