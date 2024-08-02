@@ -116,6 +116,8 @@ const Vector<String> packed_array_types = {
 DocTools *EditorHelp::doc = nullptr;
 DocTools *EditorHelp::ext_doc = nullptr;
 
+bool EditorHelpBitTooltip::_is_tooltip_visible = false;
+
 static bool _attempt_doc_load(const String &p_class) {
 	// Docgen always happens in the outer-most class: it also generates docs for inner classes.
 	String outer_class = p_class.get_slice(".", 0);
@@ -3778,7 +3780,11 @@ void EditorHelpBitTooltip::_safe_queue_free() {
 void EditorHelpBitTooltip::_target_gui_input(const Ref<InputEvent> &p_event) {
 	const Ref<InputEventMouse> mouse_event = p_event;
 	if (mouse_event.is_valid()) {
-		_start_timer();
+		if (!_first_mouse_event_done) {
+			_first_mouse_event_done = true;
+		} else {
+			_start_timer();
+		}
 	}
 }
 
@@ -3789,6 +3795,9 @@ void EditorHelpBitTooltip::_notification(int p_what) {
 			break;
 		case NOTIFICATION_WM_MOUSE_EXIT:
 			_start_timer();
+			break;
+		case NOTIFICATION_EXIT_TREE:
+			_is_tooltip_visible = false;
 			break;
 	}
 }
@@ -3811,14 +3820,36 @@ void EditorHelpBitTooltip::_input_from_window(const Ref<InputEvent> &p_event) {
 	}
 }
 
-void EditorHelpBitTooltip::show_tooltip(EditorHelpBit *p_help_bit, Control *p_target) {
-	ERR_FAIL_NULL(p_help_bit);
+Control *EditorHelpBitTooltip::show_tooltip(const String &p_symbol, Control *p_target, const String &p_description) {
+	// Show the custom tooltip only if it is not already visible.
+	// The Viewport will retrigger make_custom_tooltip every few seconds
+	// because the return control is not visible even if the custom tooltip is displayed.
+	if (_is_tooltip_visible) {
+		return _make_invisible_control();
+	}
+
+	EditorHelpBit *help_bit = memnew(EditorHelpBit(p_symbol));
+	if (!p_description.is_empty()) {
+		help_bit->set_description(p_description);
+	}
 	EditorHelpBitTooltip *tooltip = memnew(EditorHelpBitTooltip(p_target));
-	p_help_bit->connect("request_hide", callable_mp(tooltip, &EditorHelpBitTooltip::_safe_queue_free));
-	tooltip->add_child(p_help_bit);
+	help_bit->connect("request_hide", callable_mp(tooltip, &EditorHelpBitTooltip::_safe_queue_free));
+	tooltip->add_child(help_bit);
 	p_target->get_viewport()->add_child(tooltip);
-	p_help_bit->update_content_height();
+	help_bit->update_content_height();
+	// When FLAG_POPUP is false, it prevents the editor from losing focus when displaying the tooltip.
+	// This way, clicks and double-clicks are still available outside the tooltip.
+	tooltip->set_flag(Window::FLAG_POPUP, false);
 	tooltip->popup_under_cursor();
+	_is_tooltip_visible = true;
+
+	return _make_invisible_control();
+}
+
+Control *EditorHelpBitTooltip::_make_invisible_control() {
+	Control *control = memnew(Control);
+	control->set_visible(false);
+	return control;
 }
 
 // Copy-paste from `Viewport::_gui_show_tooltip()`.
@@ -3857,6 +3888,12 @@ void EditorHelpBitTooltip::popup_under_cursor() {
 	} else if (r.position.y < vr.position.y) {
 		r.position.y = vr.position.y;
 	}
+
+	// Reset the flag for the first mouse event.
+	// When FLAG_POPUP is false, there's always a first _target_gui_input event
+	// triggered when opening the popup and it's important to discard it,
+	// otherwise, the timer would be starter and the tooltip would close.
+	_first_mouse_event_done = false;
 
 	set_flag(Window::FLAG_NO_FOCUS, true);
 	popup(r);
