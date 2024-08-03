@@ -3780,11 +3780,15 @@ void EditorHelpBitTooltip::_safe_queue_free() {
 void EditorHelpBitTooltip::_target_gui_input(const Ref<InputEvent> &p_event) {
 	const Ref<InputEventMouse> mouse_event = p_event;
 	if (mouse_event.is_valid()) {
-		if (!_first_mouse_event_done) {
-			_first_mouse_event_done = true;
-		} else {
-			_start_timer();
+		// For some unknown reason, we receive mouse motion of zero when the tooltip
+		// is opened even if the mouse is not moving on Windows now that the toolip
+		// FLAG_POPUP is false.
+		Ref<InputEventMouseMotion> mm = p_event;
+		if (mm.is_valid() && mm->get_relative().is_zero_approx()) {
+			return;
 		}
+
+		_start_timer();
 	}
 }
 
