@@ -3893,12 +3893,6 @@ void EditorHelpBitTooltip::popup_under_cursor() {
 		r.position.y = vr.position.y;
 	}
 
-	// Reset the flag for the first mouse event.
-	// When FLAG_POPUP is false, there's always a first _target_gui_input event
-	// triggered when opening the popup and it's important to discard it,
-	// otherwise, the timer would be starter and the tooltip would close.
-	_first_mouse_event_done = false;
-
 	set_flag(Window::FLAG_NO_FOCUS, true);
 	popup(r);
 }
