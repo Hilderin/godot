@@ -329,7 +329,6 @@ class EditorHelpBitTooltip : public PopupPanel {
 	Timer *timer = nullptr;
 	int _pushing_input = 0;
 	bool _need_free = false;
-	bool _first_mouse_event_done = false;
 
 	void _start_timer();
 	void _safe_queue_free();
