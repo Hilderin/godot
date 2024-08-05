@@ -3862,40 +3862,49 @@ void EditorNode::_set_current_scene(int p_idx) {
 }
 
 void EditorNode::_set_current_scene_nocheck(int p_idx) {
+	print_line(vformat("%s : _set_current_scene_nocheck - 1 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	// Save the folding in case the scene gets reloaded.
 	if (editor_data.get_scene_path(p_idx) != "" && editor_data.get_edited_scene_root(p_idx)) {
 		editor_folding.save_scene_folding(editor_data.get_edited_scene_root(p_idx), editor_data.get_scene_path(p_idx));
 	}
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 2 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	changing_scene = true;
 	editor_data.save_edited_scene_state(editor_selection, &editor_history, _get_main_scene_state());
 
-	if (get_editor_data().get_edited_scene_root()) {
-		if (get_editor_data().get_edited_scene_root()->get_parent() == scene_root) {
-			scene_root->remove_child(get_editor_data().get_edited_scene_root());
-		}
-	}
+	print_line(vformat("%s : _set_current_scene_nocheck - 2.1 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
+	Node *old_scene = get_editor_data().get_edited_scene_root();
 
+	print_line(vformat("%s : _set_current_scene_nocheck - 3 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	editor_selection->clear();
 	editor_data.set_edited_scene(p_idx);
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 4 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	Node *new_scene = editor_data.get_edited_scene_root();
+
+	// Removing the scene only if it's a new scene, preventing preformance issue when adding and removing scene.
+	if (new_scene != old_scene) {
+		if (old_scene->get_parent() == scene_root) {
+			scene_root->remove_child(old_scene);
+		}
+	}
 
 	if (Popup *p = Object::cast_to<Popup>(new_scene)) {
 		p->show();
 	}
+
+	print_line(vformat("%s : _set_current_scene_nocheck - 5 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 
 	SceneTreeDock::get_singleton()->set_edited_scene(new_scene);
 	if (get_tree()) {
 		get_tree()->set_edited_scene_root(new_scene);
 	}
 
+	print_line(vformat("%s : _set_current_scene_nocheck - 6 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	if (new_scene) {
 		if (new_scene->get_parent() != scene_root) {
 			scene_root->add_child(new_scene, true);
 		}
 	}
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 7 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	if (editor_data.check_and_update_scene(p_idx)) {
 		if (!editor_data.get_scene_path(p_idx).is_empty()) {
 			editor_folding.load_scene_folding(editor_data.get_edited_scene_root(p_idx), editor_data.get_scene_path(p_idx));
@@ -3903,18 +3912,19 @@ void EditorNode::_set_current_scene_nocheck(int p_idx) {
 
 		EditorUndoRedoManager::get_singleton()->clear_history(false, editor_data.get_scene_history_id(p_idx));
 	}
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 8 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	Dictionary state = editor_data.restore_edited_scene_state(editor_selection, &editor_history);
 	_edit_current(true);
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 9 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	_update_title();
 	callable_mp(scene_tabs, &EditorSceneTabs::update_scene_tabs).call_deferred();
 
 	if (tabs_to_close.is_empty()) {
 		callable_mp(this, &EditorNode::_set_main_scene_state).call_deferred(state, get_edited_scene()); // Do after everything else is done setting up.
 	}
-
+	print_line(vformat("%s : _set_current_scene_nocheck - 10 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 	_update_undo_redo_allowed();
+	print_line(vformat("%s : _set_current_scene_nocheck - 11 - %s", OS::get_singleton()->get_ticks_msec(), p_idx));
 }
 
 void EditorNode::setup_color_picker(ColorPicker *p_picker) {
@@ -3965,6 +3975,7 @@ int EditorNode::new_scene() {
 }
 
 Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, bool p_set_inherited, bool p_clear_errors, bool p_force_open_imported, bool p_silent_change_tab) {
+	print_line(vformat("%s : load_scene - 1 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	if (!is_inside_tree()) {
 		defer_load_scene = p_scene;
 		return OK;
@@ -3986,6 +3997,7 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 			return OK;
 		}
 	}
+	print_line(vformat("%s : load_scene - 2 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 
 	if (p_clear_errors) {
 		load_errors->clear();
@@ -4002,6 +4014,8 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 	int prev = editor_data.get_edited_scene();
 	int idx = prev;
 
+	print_line(vformat("%s : load_scene - 4 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
+
 	if (prev == -1 || editor_data.get_edited_scene_root() || !editor_data.get_scene_path(prev).is_empty()) {
 		idx = editor_data.add_edited_scene(-1);
 
@@ -4016,8 +4030,11 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 
 	dependency_errors.clear();
 
+	print_line(vformat("%s : load_scene - 4.1 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
+
 	Error err;
 	Ref<PackedScene> sdata = ResourceLoader::load(lpath, "", ResourceFormatLoader::CACHE_MODE_REPLACE, &err);
+	print_line(vformat("%s : load_scene - 5 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 
 	if (!p_ignore_broken_deps && dependency_errors.has(lpath)) {
 		current_menu_option = -1;
@@ -4056,6 +4073,8 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 		add_io_error(txt);
 	}
 
+	print_line(vformat("%s : load_scene - 6 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
+
 	if (ResourceCache::has(lpath)) {
 		// Used from somewhere else? No problem! Update state and replace sdata.
 		Ref<PackedScene> ps = ResourceCache::get_ref(lpath);
@@ -4069,8 +4088,11 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 		sdata->set_path(lpath, true); // Take over path.
 	}
 
+	print_line(vformat("%s : load_scene - 7 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
+
 	Node *new_scene = sdata->instantiate(p_set_inherited ? PackedScene::GEN_EDIT_STATE_MAIN_INHERITED : PackedScene::GEN_EDIT_STATE_MAIN);
 
+	print_line(vformat("%s : load_scene - 8 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	if (!new_scene) {
 		sdata.unref();
 		_dialog_display_load_error(lpath, ERR_FILE_CORRUPT);
@@ -4082,16 +4104,18 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 		return ERR_FILE_CORRUPT;
 	}
 
+	print_line(vformat("%s : load_scene - 9 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	if (p_set_inherited) {
 		Ref<SceneState> state = sdata->get_state();
 		state->set_path(lpath);
 		new_scene->set_scene_inherited_state(state);
 		new_scene->set_scene_file_path(String());
 	}
-
+	print_line(vformat("%s : load_scene - 10 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	new_scene->set_scene_instance_state(Ref<SceneState>());
-
+	print_line(vformat("%s : load_scene - 11 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	set_edited_scene(new_scene);
+	print_line(vformat("%s : load_scene - 12 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 
 	String config_file_path = EditorPaths::get_singleton()->get_project_settings_dir().path_join(p_scene.get_file() + "-editstate-" + p_scene.md5_text() + ".cfg");
 	Ref<ConfigFile> editor_state_cf;
@@ -4101,6 +4125,8 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 		_load_editor_plugin_states_from_config(editor_state_cf);
 	}
 
+	print_line(vformat("%s : load_scene - 13 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
+
 	if (editor_folding.has_folding_data(lpath)) {
 		editor_folding.load_scene_folding(new_scene, lpath);
 	} else if (EDITOR_GET("interface/inspector/auto_unfold_foreign_scenes")) {
@@ -4109,7 +4135,7 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 	}
 
 	opening_prev = false;
-
+	print_line(vformat("%s : load_scene - 14 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	EditorDebuggerNode::get_singleton()->update_live_edit_root();
 
 	if (restoring_scenes) {
@@ -4131,7 +4157,7 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 			}
 		}
 	}
-
+	print_line(vformat("%s : load_scene - 15 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	if (!restoring_scenes) {
 		save_editor_layout_delayed();
 	}
@@ -4139,15 +4165,15 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 	if (p_set_inherited) {
 		EditorUndoRedoManager::get_singleton()->set_history_as_unsaved(editor_data.get_current_edited_scene_history_id());
 	}
-
+	print_line(vformat("%s : load_scene - 16 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	_update_title();
 	scene_tabs->update_scene_tabs();
 	_add_to_recent_scenes(lpath);
-
+	print_line(vformat("%s : load_scene - 17 - %s", OS::get_singleton()->get_ticks_msec(), p_scene));
 	return OK;
 }
 
-HashMap<StringName, Variant> EditorNode::get_modified_properties_for_node(Node *p_node, bool p_node_references_only) {
+HashMap<StringName, Variant> EditorNode::get_modified_properties_for_node(Node *p_node, bool p_node_references_only, Node *p_root) {
 	HashMap<StringName, Variant> modified_property_map;
 
 	List<PropertyInfo> pinfo;
@@ -4155,7 +4181,7 @@ HashMap<StringName, Variant> EditorNode::get_modified_properties_for_node(Node *
 	for (const PropertyInfo &E : pinfo) {
 		if (E.usage & PROPERTY_USAGE_STORAGE) {
 			bool is_valid_revert = false;
-			Variant revert_value = EditorPropertyRevert::get_property_revert_value(p_node, E.name, &is_valid_revert);
+			Variant revert_value = EditorPropertyRevert::get_property_revert_value(p_node, E.name, &is_valid_revert, p_root);
 			Variant current_value = p_node->get(E.name);
 			if (is_valid_revert) {
 				if (PropertyUtils::is_property_value_different(p_node, current_value, revert_value)) {
@@ -4270,7 +4296,7 @@ void EditorNode::update_node_reference_modification_table_for_node(
 		List<Node *> p_excluded_nodes,
 		HashMap<NodePath, ModificationNodeEntry> &p_modification_table) {
 	if (!p_excluded_nodes.find(p_node)) {
-		HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, false);
+		HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, false, p_root);
 
 		if (!modified_properties.is_empty()) {
 			ModificationNodeEntry modification_node_entry;
@@ -4333,7 +4359,7 @@ void EditorNode::get_preload_scene_modification_table(
 	// after the resources are reimported. It's not important to check which property has
 	// changed on nodes that will not be reimported because they are not part of the reimported scene.
 	if (!is_additional_node_in_scene(p_edited_scene, p_reimported_root, p_node)) {
-		HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, false);
+		HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, false, p_edited_scene);
 
 		// Find all valid connections to other nodes.
 		List<Connection> connections_to;
@@ -4412,7 +4438,7 @@ void EditorNode::update_reimported_diff_data_for_additional_nodes(
 		// which get recreated upon scene tree entry.
 		// For now instead, assume all ownerless nodes are transient and will have to be recreated.
 		if (p_node->get_owner()) {
-			HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, true);
+			HashMap<StringName, Variant> modified_properties = get_modified_properties_for_node(p_node, true, p_edited_scene);
 			if (p_node->get_owner() == p_edited_scene) {
 				AdditiveNodeEntry new_additive_node_entry;
 				new_additive_node_entry.node = p_node;
@@ -5866,25 +5892,30 @@ void EditorNode::preload_reimporting_with_path_in_edited_scenes(const String &p_
 	HashMap<int, List<Node *>> edited_scene_map;
 	scenes_modification_table.clear();
 
+	print_line(vformat("%s : preload_reimporting_with_path_in_edited_scenes - 1 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
+
 	get_edited_scene_map(p_instance_path, edited_scene_map);
+
+	print_line(vformat("%s : preload_reimporting_with_path_in_edited_scenes - 2 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 
 	if (edited_scene_map.size() > 0) {
 		scenes_modification_table.clear();
 
-		int original_edited_scene_idx = editor_data.get_edited_scene();
-		Node *original_edited_scene_root = editor_data.get_edited_scene_root();
+		//int original_edited_scene_idx = editor_data.get_edited_scene();
+		//Node *original_edited_scene_root = editor_data.get_edited_scene_root();
 
 		// Prevent scene roots with the same name from being in the tree at the same time.
-		scene_root->remove_child(original_edited_scene_root);
+		//scene_root->remove_child(original_edited_scene_root);
 
 		for (const KeyValue<int, List<Node *>> &edited_scene_map_elem : edited_scene_map) {
 			// Set the current scene.
 			int current_scene_idx = edited_scene_map_elem.key;
-			editor_data.set_edited_scene(current_scene_idx);
+			print_line(vformat("%s : preload_reimporting_with_path_in_edited_scenes - 2.1 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+			//editor_data.set_edited_scene(current_scene_idx);
 			Node *current_edited_scene = editor_data.get_edited_scene_root(current_scene_idx);
 
 			// Make sure the node is in the tree so that editor_selection can add node smoothly.
-			scene_root->add_child(current_edited_scene);
+			//scene_root->add_child(current_edited_scene);
 
 			for (Node *original_node : edited_scene_map_elem.value) {
 				// Fetching all the modified properties of the nodes reimported scene.
@@ -5897,25 +5928,26 @@ void EditorNode::preload_reimporting_with_path_in_edited_scenes(const String &p_
 				}
 			}
 
-			scene_root->remove_child(current_edited_scene);
+			//scene_root->remove_child(current_edited_scene);
 		}
 
-		editor_data.set_edited_scene(original_edited_scene_idx);
-		scene_root->add_child(original_edited_scene_root);
+		//editor_data.set_edited_scene(original_edited_scene_idx);
+		//scene_root->add_child(original_edited_scene_root);
 	}
+	print_line(vformat("%s : preload_reimporting_with_path_in_edited_scenes - 3 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 }
 
 void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_instance_path) {
 	HashMap<int, List<Node *>> edited_scene_map;
 	Array replaced_nodes;
-
+	print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 1 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 	get_edited_scene_map(p_instance_path, edited_scene_map);
-
+	print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 2 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 	if (edited_scene_map.size() > 0) {
 		// Reload the new instance.
 		Error err;
 		Ref<PackedScene> instance_scene_packed_scene = ResourceLoader::load(p_instance_path, "", ResourceFormatLoader::CACHE_MODE_REPLACE, &err);
-
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 3 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 		ERR_FAIL_COND(err != OK);
 		ERR_FAIL_COND(instance_scene_packed_scene.is_null());
 
@@ -5924,26 +5956,34 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 
 		// Save the current scene state/selection in case of lost.
 		Dictionary editor_state = _get_main_scene_state();
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 4 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 		editor_data.save_edited_scene_state(editor_selection, &editor_history, editor_state);
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 5 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 		editor_selection->clear();
 
-		int original_edited_scene_idx = editor_data.get_edited_scene();
-		Node *original_edited_scene_root = editor_data.get_edited_scene_root();
+		//int original_edited_scene_idx = editor_data.get_edited_scene();
+		//Node *original_edited_scene_root = editor_data.get_edited_scene_root();
 
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 6 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 		// Prevent scene roots with the same name from being in the tree at the same time.
-		scene_root->remove_child(original_edited_scene_root);
-
+		//scene_root->remove_child(original_edited_scene_root);
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7 - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 		for (const KeyValue<int, List<Node *>> &edited_scene_map_elem : edited_scene_map) {
 			// Set the current scene.
 			int current_scene_idx = edited_scene_map_elem.key;
-			editor_data.set_edited_scene(current_scene_idx);
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.1 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+			//editor_data.set_edited_scene(current_scene_idx);
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.2 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 			Node *current_edited_scene = editor_data.get_edited_scene_root(current_scene_idx);
 
 			// Make sure the node is in the tree so that editor_selection can add node smoothly.
-			scene_root->add_child(current_edited_scene);
+			//scene_root->add_child(current_edited_scene);
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.3 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 
 			// Restore the state so that the selection can be updated.
-			editor_state = editor_data.restore_edited_scene_state(editor_selection, &editor_history);
+			//editor_state = editor_data.restore_scene_state(editor_selection, &editor_history, current_scene_idx);
+
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.4 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 
 			int current_history_id = editor_data.get_current_edited_scene_history_id();
 			bool is_unsaved = EditorUndoRedoManager::get_singleton()->is_history_unsaved(current_history_id);
@@ -5951,14 +5991,21 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 			// Clear the history for this affected tab.
 			EditorUndoRedoManager::get_singleton()->clear_history(false, current_history_id);
 
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.5 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+
 			// Update the version
 			editor_data.is_scene_changed(current_scene_idx);
+
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.6 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 
 			// Contains modifications in the edited scene which reference nodes inside of any nodes we will be reimporting.
 			HashMap<NodePath, ModificationNodeEntry> edited_scene_global_modification_table;
 			update_node_reference_modification_table_for_node(current_edited_scene, current_edited_scene, edited_scene_map_elem.value, edited_scene_global_modification_table);
 
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.7 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+
 			for (Node *original_node : edited_scene_map_elem.value) {
+				print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.7.1 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 				String original_node_file_path = original_node->get_scene_file_path();
 
 				// Load a replacement scene for the node.
@@ -6049,6 +6096,8 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 				}
 				ERR_FAIL_NULL(instantiated_node);
 
+				print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.7.2 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+
 				// Walk the tree for the current node and extract relevant diff data, storing it in the modification table.
 				// For additional nodes which are part of the current scene, they get added to the addition table.
 				HashMap<NodePath, ModificationNodeEntry> modification_table;
@@ -6123,6 +6172,8 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 					instantiated_node->set_scene_instance_state(nullptr);
 					instantiated_node->set_scene_file_path(original_node_file_path);
 					current_edited_scene = instantiated_node;
+					scene_root->remove_child(original_node);
+					scene_root->add_child(current_edited_scene);
 					editor_data.set_edited_scene_root(current_edited_scene);
 				}
 
@@ -6196,6 +6247,8 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 				}
 				// Add the newly instantiated node to the edited scene's replaced node list.
 				replaced_nodes.push_back(instantiated_node);
+
+				print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.7.3 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 			}
 
 			// Attempt to restore the modified properties and signals for the instantitated node and all its owned children.
@@ -6208,35 +6261,47 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 				}
 			}
 
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.8 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
+
 			if (is_unsaved) {
 				EditorUndoRedoManager::get_singleton()->set_history_as_unsaved(current_history_id);
 			}
 
 			// Save the current handled scene state.
-			editor_data.save_edited_scene_state(editor_selection, &editor_history, editor_state);
-			editor_selection->clear();
+			//editor_data.save_scene_state(editor_selection, &editor_history, editor_state, current_scene_idx);
+			//editor_selection->clear();
 
 			// Cleanup the history of the changes.
 			editor_history.cleanup_history();
 
-			scene_root->remove_child(current_edited_scene);
+			//scene_root->remove_child(current_edited_scene);
+
+			print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.9 - %s", OS::get_singleton()->get_ticks_msec(), current_scene_idx));
 		}
 
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.10", OS::get_singleton()->get_ticks_msec()));
 		// For the whole editor, call the _notify_nodes_scene_reimported with a list of replaced nodes.
 		// To inform anything that depends on them that they should update as appropriate.
 		_notify_nodes_scene_reimported(this, replaced_nodes);
-
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.11", OS::get_singleton()->get_ticks_msec()));
 		edited_scene_map.clear();
 
-		editor_data.set_edited_scene(original_edited_scene_idx);
+		//editor_data.set_edited_scene(original_edited_scene_idx);
 
-		original_edited_scene_root = editor_data.get_edited_scene_root();
-		scene_root->add_child(original_edited_scene_root);
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.12", OS::get_singleton()->get_ticks_msec()));
+
+		//original_edited_scene_root = editor_data.get_edited_scene_root();
+		//scene_root->add_child(original_edited_scene_root);
+
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.13", OS::get_singleton()->get_ticks_msec()));
 
 		editor_data.restore_edited_scene_state(editor_selection, &editor_history);
+
+		print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - 7.14", OS::get_singleton()->get_ticks_msec()));
 	}
 
 	scenes_modification_table.clear();
+	print_line(vformat("%s : reload_instances_with_path_in_edited_scenes - done - %s", OS::get_singleton()->get_ticks_msec(), p_instance_path));
 }
 
 void EditorNode::_remove_all_not_owned_children(Node *p_node, Node *p_owner) {

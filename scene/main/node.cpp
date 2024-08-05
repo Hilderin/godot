@@ -3001,7 +3001,6 @@ static void find_owned_by(Node *p_by, Node *p_node, List<Node *> *p_owned) {
 void Node::replace_by(Node *p_node, bool p_keep_groups) {
 	ERR_THREAD_GUARD
 	ERR_FAIL_NULL(p_node);
-	ERR_FAIL_COND(p_node->data.parent);
 
 	List<Node *> owned = data.owned;
 	List<Node *> owned_by_owner;

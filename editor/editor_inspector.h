@@ -51,7 +51,7 @@ class TextureRect;
 
 class EditorPropertyRevert {
 public:
-	static Variant get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid);
+	static Variant get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid, const Node *p_owner = nullptr);
 	static bool can_property_revert(Object *p_object, const StringName &p_property, const Variant *p_custom_current_value = nullptr);
 };
 

@@ -1883,11 +1883,15 @@ void EditorFileSystem::_update_script_documentation() {
 }
 
 void EditorFileSystem::_process_update_pending() {
+	print_line(vformat("%s : _process_update_pending - 1", OS::get_singleton()->get_ticks_msec()));
 	_update_script_classes();
+	print_line(vformat("%s : _process_update_pending - 2", OS::get_singleton()->get_ticks_msec()));
 	// Parse documentation second, as it requires the class names to be loaded
 	// because _update_script_documentation loads the scripts completely.
 	_update_script_documentation();
+	print_line(vformat("%s : _process_update_pending - 3", OS::get_singleton()->get_ticks_msec()));
 	_update_pending_scene_groups();
+	print_line(vformat("%s : _process_update_pending - 4", OS::get_singleton()->get_ticks_msec()));
 }
 
 void EditorFileSystem::_queue_update_script_class(const String &p_path, const String &p_type, const String &p_script_class_name, const String &p_script_class_extends, const String &p_script_class_icon_path) {
@@ -2349,6 +2353,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 
 Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<StringName, Variant> &p_custom_options, const String &p_custom_importer, Variant *p_generator_parameters) {
 	print_verbose(vformat("EditorFileSystem: Importing file: %s", p_file));
+	print_line(vformat("%s : _reimport_file - 1 - %s", OS::get_singleton()->get_ticks_msec(), p_file));
 	uint64_t start_time = OS::get_singleton()->get_ticks_msec();
 
 	EditorFileSystemDirectory *fs = nullptr;
@@ -2414,6 +2419,7 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		fs->files[cpos]->type = "";
 		fs->files[cpos]->import_valid = false;
 		EditorResourcePreview::get_singleton()->check_for_invalidation(p_file);
+		print_line(vformat("%s : _reimport_file - skip - %s", OS::get_singleton()->get_ticks_msec(), p_file));
 		return OK;
 	}
 	Ref<ResourceImporter> importer;
@@ -2572,8 +2578,12 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		}
 	}
 
+	print_line(vformat("%s : _reimport_file - 2 - %s", OS::get_singleton()->get_ticks_msec(), p_file));
+
 	// Update cpos, newly created files could've changed the index of the reimported p_file.
 	_find_file(p_file, &fs, cpos);
+
+	print_line(vformat("%s : _reimport_file - 3 - %s", OS::get_singleton()->get_ticks_msec(), p_file));
 
 	// Update modified times, to avoid reimport.
 	fs->files[cpos]->modified_time = FileAccess::get_modified_time(p_file);
@@ -2600,9 +2610,13 @@ Error EditorFileSystem::_reimport_file(const String &p_file, const HashMap<Strin
 		}
 	}
 
+	print_line(vformat("%s : _reimport_file - 4 - %s", OS::get_singleton()->get_ticks_msec(), p_file));
+
 	EditorResourcePreview::get_singleton()->check_for_invalidation(p_file);
 
 	print_verbose(vformat("EditorFileSystem: \"%s\" import took %d ms.", p_file, OS::get_singleton()->get_ticks_msec() - start_time));
+
+	print_line(vformat("%s : _reimport_file - 5 - %s", OS::get_singleton()->get_ticks_msec(), p_file));
 
 	ERR_FAIL_COND_V_MSG(err != OK, ERR_FILE_UNRECOGNIZED, "Error importing '" + p_file + "'.");
 	return OK;
@@ -2649,8 +2663,9 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 	importing = true;
 
 	Vector<String> reloads;
-
+	print_line(vformat("%s : reimport_files - 1", OS::get_singleton()->get_ticks_msec()));
 	EditorProgress pr("reimport", TTR("(Re)Importing Assets"), p_files.size());
+	print_line(vformat("%s : reimport_files - 2", OS::get_singleton()->get_ticks_msec()));
 
 	Vector<ImportFile> reimport_files;
 
@@ -2693,11 +2708,13 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			fs->files.write[cpos]->import_group_file = group_file;
 		}
 	}
-
+	print_line(vformat("%s : reimport_files - 3", OS::get_singleton()->get_ticks_msec()));
 	reimport_files.sort();
 
 	// Emit the resource_reimporting signal for the single file before the actual importation.
 	emit_signal(SNAME("resources_reimporting"), reloads);
+
+	print_line(vformat("%s : reimport_files - 3.1", OS::get_singleton()->get_ticks_msec()));
 
 #ifdef THREADS_ENABLED
 	bool use_multiple_threads = GLOBAL_GET("editor/import/use_multiple_threads");
@@ -2762,7 +2779,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 	}
 
 	// Reimport groups.
-
+	print_line(vformat("%s : reimport_files - 4", OS::get_singleton()->get_ticks_msec()));
 	from = reimport_files.size();
 
 	if (groups_to_reimport.size()) {
@@ -2778,17 +2795,20 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			}
 		}
 	}
-
+	print_line(vformat("%s : reimport_files - 5", OS::get_singleton()->get_ticks_msec()));
 	ResourceUID::get_singleton()->update_cache(); // After reimporting, update the cache.
 
 	_save_filesystem_cache();
+	print_line(vformat("%s : reimport_files - 6", OS::get_singleton()->get_ticks_msec()));
 	_process_update_pending();
+	print_line(vformat("%s : reimport_files - 7", OS::get_singleton()->get_ticks_msec()));
 	importing = false;
 	if (!is_scanning()) {
 		emit_signal(SNAME("filesystem_changed"));
 	}
-
+	print_line(vformat("%s : reimport_files - 8", OS::get_singleton()->get_ticks_msec()));
 	emit_signal(SNAME("resources_reimported"), reloads);
+	print_line(vformat("%s : reimport_files - 9", OS::get_singleton()->get_ticks_msec()));
 }
 
 Error EditorFileSystem::reimport_append(const String &p_file, const HashMap<StringName, Variant> &p_custom_options, const String &p_custom_importer, Variant p_generator_parameters) {

@@ -8050,7 +8050,7 @@ void Node3DEditor::move_control_to_right_panel(Control *p_control) {
 }
 
 void Node3DEditor::_request_gizmo(Object *p_obj) {
-	Node3D *sp = Object::cast_to<Node3D>(p_obj);
+	/*Node3D *sp = Object::cast_to<Node3D>(p_obj);
 	if (!sp) {
 		return;
 	}
@@ -8073,7 +8073,7 @@ void Node3DEditor::_request_gizmo(Object *p_obj) {
 		if (!sp->get_gizmos().is_empty()) {
 			sp->update_gizmos();
 		}
-	}
+	}*/
 }
 
 void Node3DEditor::_request_gizmo_for_id(ObjectID p_id) {

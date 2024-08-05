@@ -76,14 +76,14 @@ void EditorNode3DGizmo::clear() {
 }
 
 void EditorNode3DGizmo::redraw() {
-	if (!GDVIRTUAL_CALL(_redraw)) {
+	/*if (!GDVIRTUAL_CALL(_redraw)) {
 		ERR_FAIL_NULL(gizmo_plugin);
 		gizmo_plugin->redraw(this);
 	}
 
 	if (Node3DEditor::get_singleton()->is_current_selected_gizmo(this)) {
 		Node3DEditor::get_singleton()->update_transform_gizmo();
-	}
+	}*/
 }
 
 String EditorNode3DGizmo::get_handle_name(int p_id, bool p_secondary) const {

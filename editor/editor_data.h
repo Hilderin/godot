@@ -233,7 +233,9 @@ public:
 	void get_plugin_window_layout(Ref<ConfigFile> p_layout);
 
 	void save_edited_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, const Dictionary &p_custom);
+	void save_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, const Dictionary &p_custom, int p_idx);
 	Dictionary restore_edited_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history);
+	Dictionary restore_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, int p_idx);
 	void notify_edited_scene_changed();
 	void notify_resource_saved(const Ref<Resource> &p_resource);
 	void notify_scene_saved(const String &p_path);

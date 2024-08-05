@@ -908,7 +908,11 @@ NodePath EditorData::get_edited_scene_live_edit_root() {
 }
 
 void EditorData::save_edited_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, const Dictionary &p_custom) {
-	ERR_FAIL_INDEX(current_edited_scene, edited_scene.size());
+	save_scene_state(p_selection, p_history, p_custom, current_edited_scene);
+}
+
+void EditorData::save_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, const Dictionary &p_custom, int p_idx) {
+	ERR_FAIL_INDEX(p_idx, edited_scene.size());
 
 	EditedScene &es = edited_scene.write[current_edited_scene];
 	es.selection = p_selection->get_full_selected_node_list();
@@ -919,9 +923,13 @@ void EditorData::save_edited_scene_state(EditorSelection *p_selection, EditorSel
 }
 
 Dictionary EditorData::restore_edited_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history) {
-	ERR_FAIL_INDEX_V(current_edited_scene, edited_scene.size(), Dictionary());
+	return restore_scene_state(p_selection, p_history, current_edited_scene);
+}
 
-	const EditedScene &es = edited_scene.write[current_edited_scene];
+Dictionary EditorData::restore_scene_state(EditorSelection *p_selection, EditorSelectionHistory *p_history, int p_idx) {
+	ERR_FAIL_INDEX_V(p_idx, edited_scene.size(), Dictionary());
+
+	const EditedScene &es = edited_scene.write[p_idx];
 
 	p_history->current_elem_idx = es.history_current;
 	p_history->history = es.history_stored;

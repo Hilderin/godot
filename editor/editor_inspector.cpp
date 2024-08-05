@@ -473,7 +473,7 @@ bool EditorProperty::is_read_only() const {
 	return read_only;
 }
 
-Variant EditorPropertyRevert::get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid) {
+Variant EditorPropertyRevert::get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid, const Node *p_owner) {
 	if (p_object->property_can_revert(p_property)) {
 		if (r_is_valid) {
 			*r_is_valid = true;
@@ -481,7 +481,7 @@ Variant EditorPropertyRevert::get_property_revert_value(Object *p_object, const 
 		return p_object->property_get_revert(p_property);
 	}
 
-	return PropertyUtils::get_property_default_value(p_object, p_property, r_is_valid);
+	return PropertyUtils::get_property_default_value(p_object, p_property, r_is_valid, nullptr, false, p_owner);
 }
 
 bool EditorPropertyRevert::can_property_revert(Object *p_object, const StringName &p_property, const Variant *p_custom_current_value) {

@@ -796,7 +796,7 @@ public:
 	Error load_scene(const String &p_scene, bool p_ignore_broken_deps = false, bool p_set_inherited = false, bool p_clear_errors = true, bool p_force_open_imported = false, bool p_silent_change_tab = false);
 	Error load_resource(const String &p_resource, bool p_ignore_broken_deps = false);
 
-	HashMap<StringName, Variant> get_modified_properties_for_node(Node *p_node, bool p_node_references_only);
+	HashMap<StringName, Variant> get_modified_properties_for_node(Node *p_node, bool p_node_references_only, Node *p_root);
 
 	struct AdditiveNodeEntry {
 		Node *node = nullptr;
