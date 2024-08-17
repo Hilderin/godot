@@ -59,7 +59,7 @@ bool FileAccess::exists(const String &p_name) {
 		return true;
 	}
 
-	// Using file_exists because it's faster then trying to open the file.
+	// Using file_exists because it's faster than trying to open the file.
 	Ref<FileAccess> ret = create_for_path(p_name);
 	return ret->file_exists(p_name);
 }
