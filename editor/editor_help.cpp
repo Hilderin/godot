@@ -3026,6 +3026,7 @@ void EditorHelp::update_doc() {
 void EditorHelp::cleanup_doc() {
 	_wait_for_thread();
 	memdelete(doc);
+	doc = nullptr;
 }
 
 Vector<Pair<String, int>> EditorHelp::get_sections() {
