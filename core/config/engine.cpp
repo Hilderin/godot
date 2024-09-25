@@ -396,6 +396,14 @@ void Engine::set_suspend(bool p_enabled) {
 	suspended = p_enabled;
 }
 
+void Engine::set_embedded(bool p_enabled) {
+	embedded = p_enabled;
+}
+
+bool Engine::is_embedded() const {
+	return embedded;
+}
+
 Engine::Engine() {
 	singleton = this;
 }

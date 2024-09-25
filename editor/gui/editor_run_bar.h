@@ -96,6 +96,7 @@ public:
 	void play_main_scene(bool p_from_native = false);
 	void play_current_scene(bool p_reload = false);
 	void play_custom_scene(const String &p_custom);
+	void restart();
 
 	void stop_playing();
 	bool is_playing() const;
@@ -105,6 +106,7 @@ public:
 
 	OS::ProcessID has_child_process(OS::ProcessID p_pid) const;
 	void stop_child_process(OS::ProcessID p_pid);
+	OS::ProcessID get_current_process() const;
 
 	void set_movie_maker_enabled(bool p_enabled);
 	bool is_movie_maker_enabled() const;
