@@ -1283,6 +1283,15 @@ void Window::_update_viewport_size() {
 		RS::get_singleton()->viewport_set_global_canvas_transform(get_viewport_rid(), global_canvas_transform * scale * content_scale_factor);
 		RS::get_singleton()->viewport_set_size(get_viewport_rid(), s.width, s.height);
 		embedder->_sub_window_update(this);
+	} else {
+#ifdef DEBUG_ENABLED
+		if (EngineDebugger::get_singleton() && window_id == DisplayServer::MAIN_WINDOW_ID && !Engine::get_singleton()->is_project_manager_hint()) {
+			Array arr;
+			arr.push_back(position);
+			arr.push_back(size);
+			EngineDebugger::get_singleton()->send_message("window:size_changed", arr);
+		}
+#endif
 	}
 }
 

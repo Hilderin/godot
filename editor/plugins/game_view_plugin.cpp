@@ -735,18 +735,29 @@ void GameView::_attach_script_debugger() {
 
 	if (embedded_script_debugger) {
 		embedded_script_debugger->connect("remote_window_title_changed", callable_mp(this, &GameView::_remote_window_title_changed));
+		embedded_script_debugger->connect("remote_window_size_changed", callable_mp(this, &GameView::_remote_window_size_changed));
 	}
 }
 
 void GameView::_detach_script_debugger() {
 	if (embedded_script_debugger) {
 		embedded_script_debugger->disconnect("remote_window_title_changed", callable_mp(this, &GameView::_remote_window_title_changed));
+		embedded_script_debugger->disconnect("remote_window_size_changed", callable_mp(this, &GameView::_remote_window_size_changed));
 		embedded_script_debugger = nullptr;
 	}
 }
 
 void GameView::_remote_window_title_changed(String title) {
 	window_wrapper->set_window_title(title);
+}
+
+void GameView::_remote_window_size_changed(Vector2i position, Vector2i size) {
+	Rect2i rect = embedded_process->get_screen_embedded_window_rect();
+	print_line(vformat("_remote_window_size_changed - position: %s / %s, size: %s / %s", position, rect.position, size, rect.size));
+	if (rect.position != position || rect.size != size) {
+		print_line("queue update...");
+		embedded_process->queue_update_embedded_process();
+	}
 }
 
 void GameView::_update_arguments_for_instance(int p_idx, List<String> &r_arguments) {

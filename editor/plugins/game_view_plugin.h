@@ -187,6 +187,7 @@ class GameView : public VBoxContainer {
 	void _attach_script_debugger();
 	void _detach_script_debugger();
 	void _remote_window_title_changed(String title);
+	void _remote_window_size_changed(Vector2i position, Vector2i size);
 
 	void _debugger_breaked(bool p_breaked, bool p_can_debug);
 
