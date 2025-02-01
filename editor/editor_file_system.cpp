@@ -993,8 +993,10 @@ void EditorFileSystem::scan() {
 	if (false /*&& bool(Globals::get_singleton()->get("debug/disable_scan"))*/) {
 		return;
 	}
-
-	if (scanning || scanning_changes || thread.is_started()) {
+	if (scanning || scanning_changes || thread.is_started() || refresh_queued) {
+		if (refresh_queued) {
+			print_line("scan - refresh in queue");
+		}
 		return;
 	}
 
@@ -1008,6 +1010,7 @@ void EditorFileSystem::scan() {
 
 	_update_extensions();
 
+	print_line("scan...");
 	if (!use_threads) {
 		scanning = true;
 		scan_total = 0;
@@ -1605,12 +1608,18 @@ String EditorFileSystem::_get_file_by_class_name(EditorFileSystemDirectory *p_di
 
 void EditorFileSystem::scan_changes() {
 	if (first_scan || // Prevent a premature changes scan from inhibiting the first full scan
-			scanning || scanning_changes || thread.is_started()) {
+			scanning || scanning_changes || thread.is_started() || refresh_queued) {
+		if (refresh_queued) {
+			print_line("scan_changes_pending set to true (refresh_queued)");
+		} else {
+			print_line("scan_changes_pending set to true");
+		}
 		scan_changes_pending = true;
 		set_process(true);
 		return;
 	}
 
+	print_line("scan_changes");
 	_update_extensions();
 	sources_changed.clear();
 	scanning_changes = true;
@@ -1679,10 +1688,18 @@ void EditorFileSystem::_notification(int p_what) {
 
 				prevent_recursive_process_hack = true;
 
+				// Prevent 2 executions of _update_scan_actions at the same time.
+				if (refresh_queued) {
+					print_line("NOTIFICATION_PROCESS skipped refresh queueued");
+					break;
+				}
+
 				bool done_importing = false;
 
 				if (scanning_changes) {
+					print_line("NOTIFICATION_PROCESS scanning_changes");
 					if (scanning_changes_done.is_set()) {
+						print_line("NOTIFICATION_PROCESS scanning_changes_done.is_set()");
 						set_process(false);
 
 						if (thread_sources.is_started()) {
@@ -1701,6 +1718,7 @@ void EditorFileSystem::_notification(int p_what) {
 						done_importing = true;
 					}
 				} else if (!scanning && thread.is_started()) {
+					print_line("NOTIFICATION_PROCESS !scanning && thread.is_started()");
 					set_process(false);
 
 					if (filesystem) {
@@ -3043,6 +3061,11 @@ void EditorFileSystem::_queue_refresh_filesystem() {
 }
 
 void EditorFileSystem::_refresh_filesystem() {
+	if (scanning || scanning_changes || thread.is_started()) {
+		print_line("_refresh_filesystem - scanning in progress...");
+		get_tree()->connect(SNAME("process_frame"), callable_mp(this, &EditorFileSystem::_refresh_filesystem), CONNECT_ONE_SHOT);
+		return;
+	}
 	for (const ObjectID &id : folders_to_sort) {
 		EditorFileSystemDirectory *dir = Object::cast_to<EditorFileSystemDirectory>(ObjectDB::get_instance(id));
 		if (dir) {
