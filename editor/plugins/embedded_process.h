@@ -37,6 +37,7 @@ class EmbeddedProcess : public Control {
 	GDCLASS(EmbeddedProcess, Control);
 
 	bool application_has_focus = true;
+	uint64_t last_application_focus_time = 0;
 	OS::ProcessID focused_process_id = 0;
 	OS::ProcessID current_process_id = 0;
 	bool embedding_grab_focus = false;

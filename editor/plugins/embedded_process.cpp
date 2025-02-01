@@ -67,6 +67,7 @@ void EmbeddedProcess::_notification(int p_what) {
 		} break;
 		case NOTIFICATION_APPLICATION_FOCUS_IN: {
 			application_has_focus = true;
+			last_application_focus_time = OS::get_singleton()->get_ticks_msec();
 		} break;
 		case NOTIFICATION_APPLICATION_FOCUS_OUT: {
 			application_has_focus = false;
@@ -283,6 +284,14 @@ void EmbeddedProcess::_check_mouse_over() {
 	// The goal is to give focus to the embedded process as soon as the mouse hovers over it,
 	// allowing the user to interact with it immediately without needing to click first.
 	if (!embedding_completed || !application_has_focus || !window || has_focus() || !is_visible_in_tree() || !window->has_focus() || Input::get_singleton()->is_mouse_button_pressed(MouseButton::LEFT) || Input::get_singleton()->is_mouse_button_pressed(MouseButton::RIGHT)) {
+		return;
+	}
+
+	// Before checking whether the mouse is truly inside the embedded process, ensure
+	// the editor has enough time to re-render. When a breakpoint is hit in the script editor,
+	// `_check_mouse_over` may be triggered before the editor hides the game workspace.
+	// This prevents the embedded process from regaining focus immediately after the editor has taken it.
+	if (OS::get_singleton()->get_ticks_msec() - last_application_focus_time < 500) {
 		return;
 	}
 
