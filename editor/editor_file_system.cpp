@@ -316,7 +316,10 @@ void EditorFileSystem::_first_scan_filesystem() {
 	// global_script_class_cache.cfg was missing or invalid, the global class names are valid in ScriptServer.
 	// At the same time, to prevent looping multiple times in all files, it looks for extensions.
 	ep.step(TTR("Loading global class names..."), 1, true);
-	_first_scan_process_scripts(first_scan_root_dir, gdextension_extensions, existing_class_names, extensions);
+	if (_first_scan_process_scripts(first_scan_root_dir, gdextension_extensions, existing_class_names, extensions)) {
+		ScriptServer::save_global_classes();
+		EditorNode::get_editor_data().script_class_save_icon_paths();
+	}
 
 	// Removing invalid global class to prevent having invalid paths in ScriptServer.
 	_remove_invalid_global_class_names(existing_class_names);
@@ -340,9 +343,12 @@ void EditorFileSystem::_first_scan_filesystem() {
 	ep.step(TTR("Starting file scan..."), 5, true);
 }
 
-void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_scan_dir, List<String> &p_gdextension_extensions, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions) {
+bool EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_scan_dir, List<String> &p_gdextension_extensions, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions) {
+	bool updated = false;
 	for (ScannedDirectory *scan_sub_dir : p_scan_dir->subdirs) {
-		_first_scan_process_scripts(scan_sub_dir, p_gdextension_extensions, p_existing_class_names, p_extensions);
+		if (_first_scan_process_scripts(scan_sub_dir, p_gdextension_extensions, p_existing_class_names, p_extensions)) {
+			updated = true;
+		}
 	}
 
 	for (const String &scan_file : p_scan_dir->files) {
@@ -368,6 +374,7 @@ void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_sca
 				_register_global_class_script(path, path, update);
 
 				if (!info.name.is_empty()) {
+					updated = true;
 					p_existing_class_names.insert(info.name);
 				}
 			}
@@ -382,6 +389,8 @@ void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_sca
 			}
 		}
 	}
+
+	return updated;
 }
 
 void EditorFileSystem::_scan_filesystem() {
@@ -2033,6 +2042,7 @@ EditorFileSystem::ScriptClassInfo EditorFileSystem::_get_global_script_class(con
 	for (int i = 0; i < ScriptServer::get_language_count(); i++) {
 		if (ScriptServer::get_language(i)->handles_global_class_type(p_type)) {
 			info.name = ScriptServer::get_language(i)->get_global_class_name(p_path, &info.extends, &info.icon_path, &info.is_abstract, &info.is_tool);
+			break;
 		}
 	}
 	return info;
